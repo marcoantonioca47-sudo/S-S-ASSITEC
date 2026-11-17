@@ -365,7 +365,7 @@ function renderServices(){
     (s.repairNotes?'<div class="service-extra"><small>Procedimentos / peças</small><div>'+esc(s.repairNotes)+'</div></div>':'')+
     (s.dueDate?'<div class="service-due">Vencimento do saldo: <strong>'+dateBR(s.dueDate)+'</strong></div>':'')+
     '<div class="service-card-actions">'+
-    (next?'<button class="mini-btn service-receive service-stage-button" data-action="advance-service" data-id="'+s.id+'"><span> Situação atual: '+esc(s.status)+'</span><small>Toque para avançar para '+esc(next)+'</small></button>':(s.status==='Entregue'?'<span class="status green">✓ Situação atual: Entregue</span>':''))+
+    (next?'<button class="mini-btn service-stage-button" data-action="advance-service" data-id="'+s.id+'"><span> Situação atual: '+esc(s.status)+'</span><small>Toque para avançar para '+esc(next)+'</small></button>':(s.status==='Entregue'?'<span class="status green">✓ Situação atual: Entregue</span>':''))+
     (!FINAL_SERVICE_STAGES.includes(s.status)?'<button class="mini-btn" data-action="service-update" data-id="'+s.id+'">＋ Registrar atualização</button>':'')+
     '<button class="mini-btn" data-action="view-service" data-id="'+s.id+'">Ficha / histórico</button><button class="mini-btn" data-action="edit-service" data-id="'+s.id+'">Editar ficha</button>'+
     (balance(s)>0?'<button class="mini-btn" data-action="add-payment" data-id="'+s.id+'">＋ Receber pagamento</button>':'<span class="status green">✓ Quitado</span>')+
