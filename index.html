@@ -99,6 +99,9 @@ button,.btn,.mini-btn{white-space:normal;overflow-wrap:anywhere;line-height:1.3}
 .timeline-item p{margin:5px 0 0;font-size:12px;color:#d5deeb;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:700px){.stage-counts{grid-template-columns:repeat(3,minmax(0,1fr))}.stage-board-head{align-items:flex-start;flex-direction:column}.service-detail-grid{grid-template-columns:minmax(0,1fr)}}
 
+
+.service-stage-button{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;min-height:58px;padding:10px 14px;background:linear-gradient(135deg,#b91c1c,#ef4444)!important;border:1px solid #fb7777!important;color:#fff!important;font-weight:850!important;box-shadow:0 7px 18px #ef444433}
+.service-stage-button span{font-size:14px}.service-stage-button small{font-size:11px;color:#fee2e2;font-weight:600}
 </style>
 </head>
 <body>
@@ -362,7 +365,7 @@ function renderServices(){
     (s.repairNotes?'<div class="service-extra"><small>Procedimentos / peças</small><div>'+esc(s.repairNotes)+'</div></div>':'')+
     (s.dueDate?'<div class="service-due">Vencimento do saldo: <strong>'+dateBR(s.dueDate)+'</strong></div>':'')+
     '<div class="service-card-actions">'+
-    (next?'<button class="mini-btn service-receive" data-action="advance-service" data-id="'+s.id+'">Avançar: '+esc(next)+'</button>':'')+
+    (next?'<button class="mini-btn service-receive service-stage-button" data-action="advance-service" data-id="'+s.id+'"><span> Situação atual: '+esc(s.status)+'</span><small>Toque para avançar para '+esc(next)+'</small></button>':(s.status==='Entregue'?'<span class="status green">✓ Situação atual: Entregue</span>':''))+
     (!FINAL_SERVICE_STAGES.includes(s.status)?'<button class="mini-btn" data-action="service-update" data-id="'+s.id+'">＋ Registrar atualização</button>':'')+
     '<button class="mini-btn" data-action="view-service" data-id="'+s.id+'">Ficha / histórico</button><button class="mini-btn" data-action="edit-service" data-id="'+s.id+'">Editar ficha</button>'+
     (balance(s)>0?'<button class="mini-btn" data-action="add-payment" data-id="'+s.id+'">＋ Receber pagamento</button>':'<span class="status green">✓ Quitado</span>')+
