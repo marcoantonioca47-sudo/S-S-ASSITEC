@@ -248,61 +248,99 @@ function addServiceEvent(s,title,note,status){
 function serviceForm(id){
   const s=id?service(id):null;
   if(s)normalizeService(s);
-  const currentStatus=s?.status||'Recebido';
-  const statusOptions=[...SERVICE_STAGES,'Cancelado'];
-  openModal(s?'Editar ficha técnica':'Abrir ordem de serviço',
-  '<form id="serviceForm"><div class="notice"><span>🛠</span><div><b>Ficha técnica do aparelho</b>Registre o estado do equipamento, o diagnóstico e cada etapa do reparo. Não anote senhas ou códigos de desbloqueio.</div></div><div class="form-grid">'+
-  field('Nome do cliente','clientName',{value:s?.clientName,required:true,placeholder:'Nome completo'})+
-  field('Telefone / WhatsApp','clientPhone',{value:s?.clientPhone,placeholder:'(00) 00000-0000'})+
-  field('Tipo de aparelho','device',{value:s?.device,required:true,placeholder:'Celular, notebook, caixa de som...'})+
-  field('Marca / modelo','brand',{value:s?.brand,required:true,placeholder:'Ex.: iPhone 12, Samsung A54'})+
-  field('IMEI / número de série','imei',{value:s?.imei,placeholder:'Opcional'})+
-  field('Data de entrada','date',{type:'date',value:s?.date||today(),required:true})+
-  field('Previsão de entrega','expectedDate',{type:'date',value:s?.expectedDate||''})+
-  field('Defeito informado pelo cliente','reportedIssue',{type:'textarea',value:s?.reportedIssue||s?.description,required:true,full:true,placeholder:'Descreva o problema relatado pelo cliente...'})+
-  field('Diagnóstico técnico','diagnosis',{type:'textarea',value:s?.diagnosis,full:true,placeholder:'Testes realizados e causa identificada...'})+
-  field('Serviço / reparo realizado','description',{type:'textarea',value:s?.description,required:true,full:true,placeholder:'Ex.: troca de tela, reparo no conector...'})+
-  field('Peças / procedimentos e observações técnicas','repairNotes',{type:'textarea',value:s?.repairNotes,full:true,placeholder:'Peças utilizadas, testes finais e observações...'})+
-  field('Valor cobrado do cliente (R$)','total',{type:'number',value:s?.total,required:true,min:'0',step:'0.01'})+
-  field('Custo das peças (R$)','pieceCost',{type:'number',value:s?.pieceCost??0,required:true,min:'0',step:'0.01'})+
-  '<div class="field full"><label>Lucro estimado</label><div id="serviceProfitPreview" class="amount green">'+money(Number(s?.total||0)-Number(s?.pieceCost||0))+'</div><small class="cell-sub">Valor cobrado menos custo das peças.</small></div>'+
-  field('Entrada recebida (R$)','entry',{type:'number',value:s?.entry??0,required:true,min:'0',step:'0.01'})+
-  field('Vencimento do saldo','dueDate',{type:'date',value:s?.dueDate||''})+
-  field('Etapa do atendimento','status',{type:'select',value:currentStatus,options:statusOptions})+
-  field('Garantia do serviço (dias)','warrantyDays',{type:'number',value:s?.warrantyDays??90,min:'0',step:'1'})+
-  field('Observações gerais','notes',{type:'textarea',value:s?.notes,full:true,placeholder:'Informações adicionais importantes...'})+
-  '</div><div class="notice" style="margin-top:14px;margin-bottom:0"><span>ⓘ</span><div><b>Controle financeiro</b>O saldo é calculado automaticamente. Se houver valor pendente, informe a data combinada para pagamento.</div></div>'+modalButtons(s?'Salvar alterações':'Cadastrar aparelho')+'</form>',
-  fd=>{
-    const total=Number(fd.get('total')),pieceCost=Number(fd.get('pieceCost')||0),entry=Number(fd.get('entry'));
-    if(!Number.isFinite(total)||!Number.isFinite(pieceCost)||!Number.isFinite(entry)||total<0||pieceCost<0||entry<0||entry>total){toast('Confira os valores. A entrada não pode ser maior que o total.');return}
-    const due=String(fd.get('dueDate')||'');
-    if(total-entry>0&&!due&&!confirm('O serviço terá saldo pendente sem data de vencimento. Deseja continuar?'))return;
+  const oldPlan=s?.paymentPlan||((Array.isArray(s?.installments)&&s.installments.length)?'parcelado':'avista');
+  const oldInstallments=Array.isArray(s?.installments)?s.installments:[];
+  const existingPaid=s?paid(s):0;
+  const initialCashPaid=s?existingPaid>=Number(s.total||0):false;
+  const formHtml='<form id="serviceForm"><div class="form-grid">'+
+    field('Nome do cliente','clientName',{value:s?.clientName,required:true,placeholder:'Nome do cliente'})+
+    field('Telefone / WhatsApp','clientPhone',{value:s?.clientPhone,placeholder:'Telefone do cliente'})+
+    field('Marca e modelo do aparelho','brand',{value:s?.brand||s?.device,required:true,placeholder:'Ex.: Apple iPhone 12, Samsung A54'})+
+    field('Qual serviço será feito?','description',{type:'textarea',value:s?.description||s?.reportedIssue,required:true,full:true,placeholder:'Ex.: troca de tela, bateria, conector de carga...'})+
+    field('Forma de pagamento','paymentPlan',{type:'select',value:oldPlan,options:[{value:'avista',label:'À vista'},{value:'parcelado',label:'Parcelado'}].map(x=>x.value)})+
+    '<div id="cashPaymentFields" class="field full" style="display:'+(oldPlan==='avista'?'grid':'none')+';gap:12px">'+
+      field('Valor do serviço (R$)','cashAmount',{type:'number',value:s?.total??'',required:oldPlan==='avista',min:'0.01',step:'0.01'})+
+      '<label style="display:flex;align-items:center;gap:9px;font-size:13px"><input type="checkbox" name="cashPaid" '+(initialCashPaid?'checked':'')+' style="width:18px;height:18px"> Marcar como pago</label>'+
+    '</div>'+
+    '<div id="installmentFields" class="field full" style="display:'+(oldPlan==='parcelado'?'grid':'none')+';gap:12px">'+
+      '<div class="field"><label>Quantidade de parcelas</label><select id="installmentCount" name="installmentCount">'+Array.from({length:24},(_,i)=>'<option value="'+(i+1)+'" '+((oldInstallments.length||2)===(i+1)?'selected':'')+'>'+(i+1)+'x</option>').join('')+'</select></div>'+
+      '<div id="installmentRows" class="form-grid full"></div>'+
+      '<div class="muted" id="installmentTotal">Total das parcelas: R$ 0,00</div>'+
+    '</div>'+
+  '</div>'+modalButtons(s?'Salvar alterações':'Cadastrar serviço')+'</form>';
+  openModal(s?'Editar serviço':'Novo serviço',formHtml,fd=>{
+    const plan=String(fd.get('paymentPlan')||'avista');
+    let total=0,entry=0,installments=[];
+    if(plan==='avista'){
+      total=Number(fd.get('cashAmount')||0);
+      if(!Number.isFinite(total)||total<=0){toast('Informe um valor válido para o serviço.');return}
+      entry=fd.get('cashPaid')==='on'?total:0;
+    }else{
+      const count=Number(fd.get('installmentCount')||0);
+      for(let i=0;i<count;i++){
+        const amount=Number(fd.get('installmentAmount_'+i)||0),dueDate=String(fd.get('installmentDate_'+i)||'');
+        if(!Number.isFinite(amount)||amount<=0||!dueDate){toast('Informe o valor e a data de vencimento de todas as parcelas.');return}
+        installments.push({number:i+1,amount,dueDate,paid:false});
+      }
+      total=installments.reduce((sum,p)=>sum+p.amount,0);
+      if(!count||!total){toast('Cadastre ao menos uma parcela.');return}
+      entry=0;
+    }
     const obj={
-      clientName:String(fd.get('clientName')||'').trim(),clientPhone:String(fd.get('clientPhone')||'').trim(),
-      device:String(fd.get('device')||'').trim(),brand:String(fd.get('brand')||'').trim(),imei:String(fd.get('imei')||'').trim(),
-      date:String(fd.get('date')||today()),expectedDate:String(fd.get('expectedDate')||''),
-      reportedIssue:String(fd.get('reportedIssue')||'').trim(),diagnosis:String(fd.get('diagnosis')||'').trim(),
-      description:String(fd.get('description')||'').trim(),repairNotes:String(fd.get('repairNotes')||'').trim(),
-      total,pieceCost,entry,dueDate:due,status:String(fd.get('status')||'Recebido'),
-      warrantyDays:Math.max(0,Number(fd.get('warrantyDays')||0)),notes:String(fd.get('notes')||'').trim()
+      clientName:String(fd.get('clientName')||'').trim(),
+      clientPhone:String(fd.get('clientPhone')||'').trim(),
+      device:'Celular',
+      brand:String(fd.get('brand')||'').trim(),
+      description:String(fd.get('description')||'').trim(),
+      reportedIssue:String(fd.get('description')||'').trim(),
+      date:s?.date||today(),
+      total,pieceCost:Number(s?.pieceCost||0),entry,
+      dueDate:installments[0]?.dueDate||'',
+      paymentPlan:plan,installments,
+      status:s?.status||'Recebido',
+      warrantyDays:s?.warrantyDays??90,
+      notes:s?.notes||'',diagnosis:s?.diagnosis||'',repairNotes:s?.repairNotes||'',
+      imei:s?.imei||'',expectedDate:s?.expectedDate||''
     };
-    if(!obj.clientName||!obj.device||!obj.description||!obj.reportedIssue){toast('Preencha cliente, aparelho, defeito informado e reparo solicitado.');return}
+    if(!obj.clientName||!obj.brand||!obj.description){toast('Preencha cliente, marca do aparelho e serviço.');return}
     if(s){
-      const oldStatus=s.status,oldEntry=Number(s.entry||0);
-      Object.assign(s,obj);
-      if(oldEntry!==entry)s.entryUpdatedAt=today();
-      if(oldStatus!==obj.status)addServiceEvent(s,'Etapa alterada',oldStatus+' → '+obj.status,obj.status);
-      else addServiceEvent(s,'Ficha técnica atualizada','Dados do aparelho, diagnóstico ou orçamento foram atualizados.',obj.status);
+      const oldStatus=s.status;Object.assign(s,obj);
+      if(oldStatus!==s.status)addServiceEvent(s,'Etapa alterada',oldStatus+' → '+s.status,s.status);
+      addServiceEvent(s,'Dados do serviço atualizados','Cadastro e condições de pagamento atualizados.',s.status);
     }else{
       const created={id:uid(),createdAt:new Date().toISOString(),...obj,timeline:[]};
-      addServiceEvent(created,'Aparelho recebido','Ordem de serviço aberta e aparelho cadastrado.',created.status);
+      addServiceEvent(created,'Serviço cadastrado','Novo serviço registrado.',created.status);
       data.services.push(created);
     }
-    save();closeModal();render();toast(s?'Ficha técnica atualizada.':'Aparelho recebido e ordem de serviço aberta.');
+    save();closeModal();render();toast(s?'Serviço atualizado.':'Novo serviço cadastrado.');
   });
-  const updateProfit=()=>{const t=Number($('#modalBody [name="total"]')?.value||0),p=Number($('#modalBody [name="pieceCost"]')?.value||0),out=$('#serviceProfitPreview');if(out){out.textContent=money(t-p);out.classList.toggle('red',t-p<0);out.classList.toggle('green',t-p>=0)}};
-  $('#modalBody [name="total"]')?.addEventListener('input',updateProfit);
-  $('#modalBody [name="pieceCost"]')?.addEventListener('input',updateProfit);
+  const planSelect=$('#modalBody [name="paymentPlan"]');
+  const cashBox=$('#cashPaymentFields'),installBox=$('#installmentFields');
+  const countSelect=$('#installmentCount'),rows=$('#installmentRows');
+  function renderInstallments(){
+    if(!rows)return;
+    const count=Number(countSelect.value||1);
+    rows.innerHTML=Array.from({length:count},(_,i)=>{
+      const old=oldInstallments[i]||{};
+      const suggested=old.dueDate||'';
+      const amount=old.amount??(count===oldInstallments.length?0:Number(s?.total||0)/count);
+      return '<div class="field"><label>Parcela '+(i+1)+' · Valor (R$)</label><input type="number" name="installmentAmount_'+i+'" min="0.01" step="0.01" required value="'+(amount?Number(amount).toFixed(2):'')+'" placeholder="0,00"></div><div class="field"><label>Parcela '+(i+1)+' · Data de vencimento</label><input type="date" name="installmentDate_'+i+'" required value="'+suggested+'"></div>';
+    }).join('');
+    updateInstallmentTotal();
+  }
+  function updateInstallmentTotal(){
+    const vals=Array.from(rows?.querySelectorAll('input[name^="installmentAmount_"]')||[]).map(el=>Number(el.value||0));
+    const out=$('#installmentTotal');if(out)out.textContent='Total das parcelas: '+money(vals.reduce((a,b)=>a+b,0));
+  }
+  planSelect?.addEventListener('change',()=>{
+    const isCash=planSelect.value==='avista';
+    cashBox.style.display=isCash?'grid':'none';installBox.style.display=isCash?'none':'grid';
+    $('#modalBody [name="cashAmount"]').required=isCash;
+    if(!isCash)renderInstallments();
+  });
+  countSelect?.addEventListener('change',renderInstallments);
+  rows?.addEventListener('input',updateInstallmentTotal);
+  if(oldPlan==='parcelado')renderInstallments();
   bindCancel();
 }
 function renderServices(){
