@@ -74,6 +74,31 @@ button,.btn,.mini-btn{white-space:normal;overflow-wrap:anywhere;line-height:1.3}
   .modal-actions{grid-template-columns:minmax(0,1fr)}
   .nav-mobile button{font-size:9px}
 }
+
+.stage-board{background:linear-gradient(145deg,#171e2a,#111720);border:1px solid #303a4c;border-radius:16px;padding:15px;margin:0 0 15px}
+.stage-board-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}
+.stage-board-head span,.stage-count small{color:var(--muted);font-size:11px}
+.stage-counts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.stage-count{background:#202735;border:1px solid #2d384a;border-radius:11px;padding:10px 7px;text-align:center;min-width:0}
+.stage-count b{display:block;font-size:20px}
+.stage-count small{display:block;overflow-wrap:anywhere;line-height:1.25;margin-top:3px}
+.service-extra{margin-top:10px;padding:10px 12px;background:#111925;border:1px solid #293548;border-radius:10px;font-size:13px;overflow-wrap:anywhere}
+.service-extra small,.service-detail-grid small{display:block;color:#9eabc0;font-size:11px;margin-bottom:4px}
+.service-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.service-detail-grid>div{padding:10px;background:#202735;border:1px solid #2d384a;border-radius:10px;min-width:0;overflow-wrap:anywhere}
+.service-detail-grid b{display:block;font-size:13px;overflow-wrap:anywhere}
+.service-detail-section{margin-top:17px}
+.service-detail-section h3{font-size:14px;margin:0 0 9px}
+.service-detail-section p{margin:5px 0;color:#d5deeb;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.service-timeline{display:grid;gap:0}
+.timeline-item{position:relative;display:grid;grid-template-columns:14px minmax(0,1fr);gap:10px;padding:0 0 15px}
+.timeline-dot{width:10px;height:10px;border-radius:50%;background:#f87171;margin-top:5px;box-shadow:0 0 0 4px #f8717120}
+.timeline-item:not(:last-child):before{content:"";position:absolute;left:4px;top:15px;bottom:0;width:2px;background:#354154}
+.timeline-item b{font-size:13px}
+.timeline-item small{display:block;color:#9eabc0;font-size:11px;margin-top:2px}
+.timeline-item p{margin:5px 0 0;font-size:12px;color:#d5deeb;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:700px){.stage-counts{grid-template-columns:repeat(3,minmax(0,1fr))}.stage-board-head{align-items:flex-start;flex-direction:column}.service-detail-grid{grid-template-columns:minmax(0,1fr)}}
+
 </style>
 </head>
 <body>
@@ -192,7 +217,172 @@ function receiveService(id){const s=service(id);if(!s)return;if(balance(s)<=0){s
 function addPayment(id){const s=service(id);if(!s)return;const bal=balance(s);if(bal<=0){toast('Este serviço já está quitado.');return}openModal('Registrar pagamento','<form><div class="notice"><span>↗</span><div><b>'+esc(clientName(s))+' · '+esc(s.device)+'</b>Saldo restante: '+money(bal)+'</div></div><div class="form-grid">'+field('Valor recebido (R$)','amount',{type:'number',required:true,min:'0.01',max:bal,step:'0.01'})+field('Data do pagamento','date',{type:'date',value:today(),required:true})+field('Forma / observação','note',{full:true,placeholder:'Ex.: Pix, dinheiro, cartão...'})+'</div>'+modalButtons('Confirmar pagamento')+'</form>',fd=>{const amount=Number(fd.get('amount'));if(amount<=0||amount>bal+0.001){toast('O valor deve ser maior que zero e não pode ultrapassar o saldo.');return}data.payments.push({id:uid(),serviceId:id,amount,date:String(fd.get('date')||today()),note:String(fd.get('note')||'Pagamento').trim()||'Pagamento'});save();closeModal();render();toast('Pagamento registrado com sucesso.')});bindCancel()}
 function viewService(id){const s=service(id);if(!s)return;const logs=[...(Number(s.entry)>0?[{date:s.date,amount:Number(s.entry),note:'Entrada'}]:[]),...data.payments.filter(p=>p.serviceId===id).map(p=>({date:p.date,amount:p.amount,note:p.note}))].sort((a,b)=>(a.date||'').localeCompare(b.date||''));openModal('Detalhes do serviço','<div class="form-grid"><div class="field"><label>Cliente</label><div>'+esc(clientName(s))+'</div></div><div class="field"><label>Contato</label><div>'+esc(clientPhone(s)||'Não informado')+'</div></div><div class="field"><label>Aparelho</label><div>'+esc(s.device)+' '+esc(s.brand||'')+'</div></div><div class="field"><label>Status</label><div>'+statusPill(s.status)+'</div></div><div class="field full"><label>Serviço / defeito</label><div>'+esc(s.description)+'</div></div><div class="field"><label>Valor total</label><div class="amount">'+money(s.total)+'</div></div><div class="field"><label>Saldo restante</label><div class="amount red">'+money(balance(s))+'</div></div><div class="field"><label>Entrada</label><div>'+money(s.entry)+'</div></div><div class="field"><label>Vencimento</label><div>'+dateBR(s.dueDate)+'</div></div><div class="field full"><label>Observações</label><div>'+esc(s.notes||'Nenhuma observação.')+'</div></div></div><div class="section-head"><div><h2>Histórico financeiro</h2></div></div><div class="payment-log">'+(logs.length?logs.map(p=>'<div class="payment-line"><div><b>'+esc(p.note)+'</b><br><small>'+dateBR(p.date)+'</small></div><b class="amount green">'+money(p.amount)+'</b></div>').join(''):'<div class="empty">Nenhum pagamento registrado.</div>')+'</div><div class="modal-actions"><button type="button" class="btn btn-quiet" id="cancelModal">Fechar</button>'+(balance(s)>0?'<button type="button" class="btn btn-primary" id="viewPayBtn">＋ Registrar pagamento</button>':'')+'</div>',()=>{});$('#cancelModal').addEventListener('click',closeModal);$('#viewPayBtn')?.addEventListener('click',()=>{closeModal();addPayment(id)})}
 function editEntry(id){const s=service(id);if(!s)return;serviceForm(id)}
-document.addEventListener('click',e=>{const pg=e.target.closest('[data-page]');if(pg){showPage(pg.dataset.page);return}const go=e.target.closest('[data-go]');if(go){showPage(go.dataset.go);return}const act=e.target.closest('[data-action]');if(!act)return;const a=act.dataset.action,id=act.dataset.id;if(a==='new-service')serviceForm();if(a==='edit-sale')saleForm(id);if(a==='view-sale')viewSale(id);if(a==='receive-sale')receiveSale(id);if(a==='view-service')viewService(id);if(a==='edit-service')editEntry(id);if(a==='add-payment')addPayment(id);if(a==='sale-pay')addSalePayment(id);if(a==='receive-service')receiveService(id);});
+
+const SERVICE_STAGES=['Recebido','Em diagnóstico','Aguardando aprovação','Aguardando peça','Em reparo','Pronto','Entregue'];
+const FINAL_SERVICE_STAGES=['Entregue','Cancelado'];
+function normalizeService(s){
+  if(!s||typeof s!=='object')return;
+  const legacy={'Em andamento':'Em reparo'};
+  if(legacy[s.status])s.status=legacy[s.status];
+  if(!SERVICE_STAGES.includes(s.status)&&s.status!=='Cancelado')s.status='Recebido';
+  if(!Array.isArray(s.timeline))s.timeline=[{id:uid(),date:s.createdAt||new Date().toISOString(),status:s.status||'Recebido',title:'Histórico iniciado',note:'Ficha técnica disponível a partir desta atualização.'}];
+  if(!s.reportedIssue)s.reportedIssue=s.description||'';
+  if(!s.diagnosis)s.diagnosis='';
+  if(!s.repairNotes)s.repairNotes='';
+  if(!s.imei)s.imei='';
+  if(!s.expectedDate)s.expectedDate='';
+  if(s.warrantyDays==null)s.warrantyDays=90;
+}
+data.services.forEach(normalizeService);
+function statusClass(s){
+  if(s==='Entregue'||s==='Pronto')return 'green';
+  if(s==='Cancelado')return 'red';
+  if(s==='Aguardando peça'||s==='Aguardando aprovação')return 'yellow';
+  if(s==='Recebido'||s==='Em diagnóstico')return 'blue';
+  return 'blue';
+}
+function addServiceEvent(s,title,note,status){
+  if(!Array.isArray(s.timeline))s.timeline=[];
+  s.timeline.push({id:uid(),date:new Date().toISOString(),status:status||s.status||'',title,note:String(note||'').trim()});
+}
+function serviceForm(id){
+  const s=id?service(id):null;
+  if(s)normalizeService(s);
+  const currentStatus=s?.status||'Recebido';
+  const statusOptions=[...SERVICE_STAGES,'Cancelado'];
+  openModal(s?'Editar ficha técnica':'Abrir ordem de serviço',
+  '<form id="serviceForm"><div class="notice"><span>🛠</span><div><b>Ficha técnica do aparelho</b>Registre o estado do equipamento, o diagnóstico e cada etapa do reparo. Não anote senhas ou códigos de desbloqueio.</div></div><div class="form-grid">'+
+  field('Nome do cliente','clientName',{value:s?.clientName,required:true,placeholder:'Nome completo'})+
+  field('Telefone / WhatsApp','clientPhone',{value:s?.clientPhone,placeholder:'(00) 00000-0000'})+
+  field('Tipo de aparelho','device',{value:s?.device,required:true,placeholder:'Celular, notebook, caixa de som...'})+
+  field('Marca / modelo','brand',{value:s?.brand,required:true,placeholder:'Ex.: iPhone 12, Samsung A54'})+
+  field('IMEI / número de série','imei',{value:s?.imei,placeholder:'Opcional'})+
+  field('Data de entrada','date',{type:'date',value:s?.date||today(),required:true})+
+  field('Previsão de entrega','expectedDate',{type:'date',value:s?.expectedDate||''})+
+  field('Defeito informado pelo cliente','reportedIssue',{type:'textarea',value:s?.reportedIssue||s?.description,required:true,full:true,placeholder:'Descreva o problema relatado pelo cliente...'})+
+  field('Diagnóstico técnico','diagnosis',{type:'textarea',value:s?.diagnosis,full:true,placeholder:'Testes realizados e causa identificada...'})+
+  field('Serviço / reparo realizado','description',{type:'textarea',value:s?.description,required:true,full:true,placeholder:'Ex.: troca de tela, reparo no conector...'})+
+  field('Peças / procedimentos e observações técnicas','repairNotes',{type:'textarea',value:s?.repairNotes,full:true,placeholder:'Peças utilizadas, testes finais e observações...'})+
+  field('Valor cobrado do cliente (R$)','total',{type:'number',value:s?.total,required:true,min:'0',step:'0.01'})+
+  field('Custo das peças (R$)','pieceCost',{type:'number',value:s?.pieceCost??0,required:true,min:'0',step:'0.01'})+
+  '<div class="field full"><label>Lucro estimado</label><div id="serviceProfitPreview" class="amount green">'+money(Number(s?.total||0)-Number(s?.pieceCost||0))+'</div><small class="cell-sub">Valor cobrado menos custo das peças.</small></div>'+
+  field('Entrada recebida (R$)','entry',{type:'number',value:s?.entry??0,required:true,min:'0',step:'0.01'})+
+  field('Vencimento do saldo','dueDate',{type:'date',value:s?.dueDate||''})+
+  field('Etapa do atendimento','status',{type:'select',value:currentStatus,options:statusOptions})+
+  field('Garantia do serviço (dias)','warrantyDays',{type:'number',value:s?.warrantyDays??90,min:'0',step:'1'})+
+  field('Observações gerais','notes',{type:'textarea',value:s?.notes,full:true,placeholder:'Informações adicionais importantes...'})+
+  '</div><div class="notice" style="margin-top:14px;margin-bottom:0"><span>ⓘ</span><div><b>Controle financeiro</b>O saldo é calculado automaticamente. Se houver valor pendente, informe a data combinada para pagamento.</div></div>'+modalButtons(s?'Salvar alterações':'Cadastrar aparelho')+'</form>',
+  fd=>{
+    const total=Number(fd.get('total')),pieceCost=Number(fd.get('pieceCost')||0),entry=Number(fd.get('entry'));
+    if(!Number.isFinite(total)||!Number.isFinite(pieceCost)||!Number.isFinite(entry)||total<0||pieceCost<0||entry<0||entry>total){toast('Confira os valores. A entrada não pode ser maior que o total.');return}
+    const due=String(fd.get('dueDate')||'');
+    if(total-entry>0&&!due&&!confirm('O serviço terá saldo pendente sem data de vencimento. Deseja continuar?'))return;
+    const obj={
+      clientName:String(fd.get('clientName')||'').trim(),clientPhone:String(fd.get('clientPhone')||'').trim(),
+      device:String(fd.get('device')||'').trim(),brand:String(fd.get('brand')||'').trim(),imei:String(fd.get('imei')||'').trim(),
+      date:String(fd.get('date')||today()),expectedDate:String(fd.get('expectedDate')||''),
+      reportedIssue:String(fd.get('reportedIssue')||'').trim(),diagnosis:String(fd.get('diagnosis')||'').trim(),
+      description:String(fd.get('description')||'').trim(),repairNotes:String(fd.get('repairNotes')||'').trim(),
+      total,pieceCost,entry,dueDate:due,status:String(fd.get('status')||'Recebido'),
+      warrantyDays:Math.max(0,Number(fd.get('warrantyDays')||0)),notes:String(fd.get('notes')||'').trim()
+    };
+    if(!obj.clientName||!obj.device||!obj.description||!obj.reportedIssue){toast('Preencha cliente, aparelho, defeito informado e reparo solicitado.');return}
+    if(s){
+      const oldStatus=s.status,oldEntry=Number(s.entry||0);
+      Object.assign(s,obj);
+      if(oldEntry!==entry)s.entryUpdatedAt=today();
+      if(oldStatus!==obj.status)addServiceEvent(s,'Etapa alterada',oldStatus+' → '+obj.status,obj.status);
+      else addServiceEvent(s,'Ficha técnica atualizada','Dados do aparelho, diagnóstico ou orçamento foram atualizados.',obj.status);
+    }else{
+      const created={id:uid(),createdAt:new Date().toISOString(),...obj,timeline:[]};
+      addServiceEvent(created,'Aparelho recebido','Ordem de serviço aberta e aparelho cadastrado.',created.status);
+      data.services.push(created);
+    }
+    save();closeModal();render();toast(s?'Ficha técnica atualizada.':'Aparelho recebido e ordem de serviço aberta.');
+  });
+  const updateProfit=()=>{const t=Number($('#modalBody [name="total"]')?.value||0),p=Number($('#modalBody [name="pieceCost"]')?.value||0),out=$('#serviceProfitPreview');if(out){out.textContent=money(t-p);out.classList.toggle('red',t-p<0);out.classList.toggle('green',t-p>=0)}};
+  $('#modalBody [name="total"]')?.addEventListener('input',updateProfit);
+  $('#modalBody [name="pieceCost"]')?.addEventListener('input',updateProfit);
+  bindCancel();
+}
+function renderServices(){
+  const q=($('#serviceSearch')?.value||'').toLowerCase(),st=$('#serviceStatus')?.value||'';
+  const rows=data.services.filter(s=>{
+    normalizeService(s);
+    return (!q||[s.clientName,s.clientPhone,s.device,s.description,s.brand,s.imei,s.reportedIssue,s.diagnosis].join(' ').toLowerCase().includes(q))&&(!st||s.status===st);
+  }).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const activeCount=data.services.filter(s=>!FINAL_SERVICE_STAGES.includes(s.status)).length;
+  const stages=SERVICE_STAGES.slice(0,6).map(stage=>'<div class="stage-count"><b>'+data.services.filter(s=>s.status===stage).length+'</b><small>'+esc(stage)+'</small></div>').join('');
+  const board='<div class="stage-board"><div class="stage-board-head"><b>Etapas da assistência</b><span>'+activeCount+' aparelho(s) em atendimento</span></div><div class="stage-counts">'+stages+'</div></div>';
+  const cards=rows.length?rows.map(s=>{
+    const step=SERVICE_STAGES.indexOf(s.status),next=step>=0&&step<SERVICE_STAGES.length-1?SERVICE_STAGES[step+1]:'';
+    const warranty=Number(s.warrantyDays||0);
+    return '<article class="service-card"><div class="service-card-head"><div class="service-person"><strong>'+esc(clientName(s))+'</strong><span>'+esc(s.device)+(s.brand?' · '+esc(s.brand):'')+'</span></div><div>'+statusPill(s.status)+'</div></div>'+
+    '<div class="service-description"><b>Defeito relatado:</b> '+esc(s.reportedIssue||s.description||'Não informado')+'</div>'+
+    (s.diagnosis?'<div class="service-extra"><small>Diagnóstico técnico</small><div>'+esc(s.diagnosis)+'</div></div>':'')+
+    '<div class="service-card-meta"><div><small>Entrada</small><b>'+dateBR(s.date)+'</b></div><div><small>Previsão de entrega</small><b>'+dateBR(s.expectedDate)+'</b></div><div><small>Valor do serviço</small><b>'+money(s.total)+'</b></div><div><small>Saldo restante</small><b class="amount '+(balance(s)>0?'red':'green')+'">'+money(balance(s))+'</b></div><div><small>IMEI / série</small><b>'+esc(s.imei||'Não informado')+'</b></div><div><small>Garantia</small><b>'+warranty+' dias</b></div></div>'+
+    (s.repairNotes?'<div class="service-extra"><small>Procedimentos / peças</small><div>'+esc(s.repairNotes)+'</div></div>':'')+
+    (s.dueDate?'<div class="service-due">Vencimento do saldo: <strong>'+dateBR(s.dueDate)+'</strong></div>':'')+
+    '<div class="service-card-actions">'+
+    (next?'<button class="mini-btn service-receive" data-action="advance-service" data-id="'+s.id+'">Avançar: '+esc(next)+'</button>':'')+
+    (!FINAL_SERVICE_STAGES.includes(s.status)?'<button class="mini-btn" data-action="service-update" data-id="'+s.id+'">＋ Registrar atualização</button>':'')+
+    '<button class="mini-btn" data-action="view-service" data-id="'+s.id+'">Ficha / histórico</button><button class="mini-btn" data-action="edit-service" data-id="'+s.id+'">Editar ficha</button>'+
+    (balance(s)>0?'<button class="mini-btn" data-action="add-payment" data-id="'+s.id+'">＋ Receber pagamento</button>':'<span class="status green">✓ Quitado</span>')+
+    '</div></article>';
+  }).join(''):'<div class="empty">Nenhum serviço encontrado. Ajuste a busca ou abra uma nova ordem de serviço.</div>';
+  $('#servicesList').innerHTML=board+cards;
+}
+function renderDashboard(){
+  const pending=data.services.filter(s=>!FINAL_SERVICE_STAGES.includes(s.status));
+  const totalServices=data.services.filter(s=>s.status!=='Cancelado').reduce((n,s)=>n+Number(s.total||0),0);
+  const totalSales=data.sales.reduce((n,s)=>n+Number(s.salePrice??s.total??0),0);
+  const profitServices=data.services.filter(s=>s.status!=='Cancelado').reduce((n,s)=>n+serviceProfit(s),0);
+  const profitSales=data.sales.reduce((n,s)=>n+(Number(s.salePrice??s.total??0)-Number(s.purchasePrice??s.pieceCost??0)),0);
+  $('#statPendingServices').textContent=pending.length;
+  $('#statTotalSold').textContent=money(totalServices+totalSales);
+  $('#statTotalProfit').textContent=money(profitServices+profitSales);
+  $('#pendingServices').innerHTML=pending.length?pending.sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).map(s=>'<div class="list-item"><div class="list-main"><b>'+esc(clientName(s))+' · '+esc(s.device)+'</b><small>'+esc(s.reportedIssue||s.description||'Serviço')+' · Entrada: '+dateBR(s.date)+'</small><small>Etapa: '+esc(s.status)+' · Saldo: '+money(balance(s))+(s.expectedDate?' · Previsão: '+dateBR(s.expectedDate):'')+'</small></div><div style="text-align:right;display:grid;justify-items:end;gap:7px">'+statusPill(s.status)+'<div class="actions"><button class="mini-btn" data-action="view-service" data-id="'+s.id+'">Ficha</button><button class="mini-btn" data-action="edit-service" data-id="'+s.id+'">Editar</button></div></div></div>').join(''):'<div class="empty"><span>✓</span>Nenhum aparelho pendente na assistência.</div>';
+}
+function advanceService(id){
+  const s=service(id);if(!s)return;normalizeService(s);
+  const index=SERVICE_STAGES.indexOf(s.status);
+  if(index<0||index>=SERVICE_STAGES.length-1){toast('Este atendimento não possui próxima etapa.');return}
+  const next=SERVICE_STAGES[index+1];
+  if(next==='Entregue'&&balance(s)>0&&!confirm('O serviço ainda possui saldo de '+money(balance(s))+'. Deseja marcar o aparelho como entregue mesmo assim?'))return;
+  if(!confirm('Avançar '+esc(clientName(s))+' para "'+next+'"?'))return;
+  const old=s.status;s.status=next;addServiceEvent(s,'Etapa alterada',old+' → '+next,next);
+  if(next==='Entregue')s.deliveredAt=today();
+  save();render();toast('Atendimento atualizado: '+next+'.');
+}
+function serviceUpdateForm(id){
+  const s=service(id);if(!s)return;normalizeService(s);
+  openModal('Registrar atualização técnica','<form><div class="notice"><span>🛠</span><div><b>'+esc(clientName(s))+' · '+esc(s.device)+'</b>Etapa atual: '+esc(s.status)+'</div></div><div class="form-grid">'+
+  field('Tipo de atualização','eventType',{type:'select',value:'Observação técnica',options:['Observação técnica','Teste realizado','Contato com cliente','Peça solicitada','Orçamento / aprovação','Outro']})+
+  field('Descrição da atualização','eventNote',{type:'textarea',required:true,full:true,placeholder:'Descreva o que foi feito, testado ou combinado...'})+
+  '</div>'+modalButtons('Salvar atualização')+'</form>',fd=>{
+    const note=String(fd.get('eventNote')||'').trim();if(!note){toast('Descreva a atualização antes de salvar.');return}
+    addServiceEvent(s,String(fd.get('eventType')||'Atualização'),note,s.status);
+    s.lastUpdatedAt=new Date().toISOString();save();closeModal();render();toast('Atualização adicionada ao histórico.');
+  });bindCancel();
+}
+function viewService(id){
+  const s=service(id);if(!s)return;normalizeService(s);
+  const logs=[...(Number(s.entry)>0?[{date:s.createdAt||s.date,title:'Entrada recebida',note:'Valor inicial recebido: '+money(s.entry)}]:[]),...data.payments.filter(p=>p.serviceId===id).map(p=>({date:p.date,title:p.note||'Pagamento',note:'Valor recebido: '+money(p.amount)}))];
+  const timeline=[...(s.timeline||[])].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  openModal('Ficha técnica e histórico','<div class="service-detail-grid"><div><small>Cliente</small><b>'+esc(clientName(s))+'</b></div><div><small>Telefone</small><b>'+esc(clientPhone(s)||'Não informado')+'</b></div><div><small>Aparelho</small><b>'+esc(s.device)+' · '+esc(s.brand||'')+'</b></div><div><small>IMEI / série</small><b>'+esc(s.imei||'Não informado')+'</b></div><div><small>Entrada</small><b>'+dateBR(s.date)+'</b></div><div><small>Previsão</small><b>'+dateBR(s.expectedDate)+'</b></div><div><small>Etapa atual</small><b>'+statusPill(s.status)+'</b></div><div><small>Garantia</small><b>'+Number(s.warrantyDays||0)+' dias</b></div></div>'+
+  '<div class="service-detail-section"><h3>Defeito informado</h3><p>'+esc(s.reportedIssue||s.description||'Não informado')+'</p></div>'+
+  '<div class="service-detail-section"><h3>Diagnóstico técnico</h3><p>'+esc(s.diagnosis||'Ainda não registrado.')+'</p></div>'+
+  '<div class="service-detail-section"><h3>Reparo / procedimentos</h3><p>'+esc(s.description||'Não informado')+'</p><p>'+esc(s.repairNotes||'Sem observações técnicas.')+'</p></div>'+
+  '<div class="service-detail-section"><h3>Financeiro</h3><div class="service-detail-grid"><div><small>Valor total</small><b>'+money(s.total)+'</b></div><div><small>Custo das peças</small><b>'+money(s.pieceCost)+'</b></div><div><small>Lucro estimado</small><b>'+money(serviceProfit(s))+'</b></div><div><small>Saldo restante</small><b>'+money(balance(s))+'</b></div></div></div>'+
+  '<div class="service-detail-section"><h3>Histórico de etapas e atualizações</h3><div class="service-timeline">'+(timeline.length?timeline.map(ev=>'<div class="timeline-item"><span class="timeline-dot"></span><div><b>'+esc(ev.title||ev.status||'Atualização')+'</b><small>'+new Date(ev.date).toLocaleString('pt-BR')+(ev.status?' · '+esc(ev.status):'')+'</small>'+(ev.note?'<p>'+esc(ev.note)+'</p>':'')+'</div></div>').join(''):'<div class="empty">Nenhuma atualização registrada.</div>')+'</div></div>'+
+  '<div class="service-detail-section"><h3>Histórico financeiro</h3><div class="payment-log">'+(logs.length?logs.map(p=>'<div class="payment-line"><div><b>'+esc(p.title)+'</b><br><small>'+dateBR(String(p.date||'').slice(0,10))+'</small></div><b class="amount green">'+esc(p.note)+'</b></div>').join(''):'<div class="empty">Nenhum pagamento registrado.</div>')+'</div></div>'+
+  '<div class="modal-actions"><button type="button" class="btn btn-quiet" id="cancelModal">Fechar</button><button type="button" class="btn btn-secondary" id="detailUpdateBtn">＋ Atualização</button><button type="button" class="btn btn-primary" id="editServiceDetail">Editar ficha</button></div>',()=>{});
+  $('#cancelModal').addEventListener('click',closeModal);
+  $('#detailUpdateBtn').addEventListener('click',()=>{closeModal();serviceUpdateForm(id)});
+  $('#editServiceDetail').addEventListener('click',()=>{closeModal();serviceForm(id)});
+}
+
+document.addEventListener('click',e=>{const pg=e.target.closest('[data-page]');if(pg){showPage(pg.dataset.page);return}const go=e.target.closest('[data-go]');if(go){showPage(go.dataset.go);return}const act=e.target.closest('[data-action]');if(!act)return;const a=act.dataset.action,id=act.dataset.id;if(a==='new-service')serviceForm();if(a==='edit-sale')saleForm(id);if(a==='view-sale')viewSale(id);if(a==='receive-sale')receiveSale(id);if(a==='view-service')viewService(id);if(a==='edit-service')editEntry(id);if(a==='advance-service')advanceService(id);if(a==='service-update')serviceUpdateForm(id);if(a==='add-payment')addPayment(id);if(a==='sale-pay')addSalePayment(id);if(a==='receive-service')receiveService(id);});
 $('#dashboardNewService').addEventListener('click',()=>serviceForm());$('#quickNew').addEventListener('click',()=>serviceForm());$('#newServiceBtn').addEventListener('click',()=>serviceForm());$('#newSaleBtn').addEventListener('click',()=>saleForm());$('#saleSearch').addEventListener('input',renderSales);$('#saleStatus').addEventListener('change',renderSales);document.addEventListener('click',e=>{if(e.target.closest('#closeModal,.close,[data-close-modal],[aria-label="Fechar"]')){e.preventDefault();closeModal()}});$('#modalBackdrop').addEventListener('click',e=>{if(e.target===$('#modalBackdrop'))closeModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modalBackdrop').classList.contains('open'))closeModal()});document.addEventListener('dblclick',e=>{if(e.cancelable)e.preventDefault()},{passive:false});let lastTouchEnd=0;document.addEventListener('touchend',e=>{const now=Date.now();if(now-lastTouchEnd<=300&&e.cancelable)e.preventDefault();lastTouchEnd=now},{passive:false});$('#serviceSearch').addEventListener('input',renderServices);$('#serviceStatus').addEventListener('change',renderServices);$('#paymentSearch').addEventListener('input',renderPayments);
 try{render()}catch(error){console.error('SOS ASSISTEC: falha ao iniciar a tela',error);const main=document.querySelector('main');if(main){const alert=document.createElement('div');alert.className='notice';alert.style.margin='16px';alert.innerHTML='<span>⚠</span><div><b>Falha ao carregar a tela</b>O sistema encontrou um erro ao iniciar. Atualize a página; se persistir, envie uma captura de tela desta mensagem para corrigirmos a causa.</div>';main.prepend(alert)}}
 })();
